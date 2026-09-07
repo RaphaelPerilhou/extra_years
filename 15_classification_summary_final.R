@@ -81,6 +81,11 @@ summarize_county_final <- function(geoid, statefp, years) {
     r <- rast(in_path)
     freq_tbl <- terra::freq(r)
     
+    if (nrow(freq_tbl) == 0) {
+      cat("  Empty raster (no pixels), skipping:", in_path, "\n")
+      next
+    }
+    
     all_rows[[as.character(year)]] <- data.frame(
       statefp  = statefp,
       geoid    = geoid,
