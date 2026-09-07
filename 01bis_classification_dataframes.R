@@ -22,7 +22,7 @@ library(readxl)
 # CONFIGURATION
 ################################################################################
 
-VERSION <- "v2"   # or "v2" (=choose the sheet of CDL_CENSUS_MAP_meta.xlsx)
+VERSION <- "v1"   # or "v2" (=choose the sheet of CDL_CENSUS_MAP_meta.xlsx)
 
 ################################################################################
 # PATHS: every directory/file this script reads or writes.

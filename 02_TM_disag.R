@@ -28,7 +28,7 @@ library(terra)
 library(dplyr)
 library(readxl)
 
-VERSION <- "v2"
+VERSION <- "v1"
 
 ################################################################################
 # PATHS BUILDER

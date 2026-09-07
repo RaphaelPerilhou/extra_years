@@ -15,7 +15,7 @@ library(readxl)
 
 setwd("/users/rperilhou/extra_years")
 
-VERSION <- "v2"
+VERSION <- "v1"
 
 ################################################################################
 # PATHS BUILDER
