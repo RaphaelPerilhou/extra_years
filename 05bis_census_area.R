@@ -21,7 +21,7 @@ library(tidyverse)
 library(readxl)
 library(data.table)
 
-VERSION <- "v2"   # or "v1"
+VERSION <- "v1"   # or "v1"
 
 ################################################################################
 # PATHS BUILDER
