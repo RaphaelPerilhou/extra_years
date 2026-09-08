@@ -16,7 +16,7 @@ library(terra)
 library(dplyr)
 library(sf)
 
-VERSION <- "v2"
+VERSION <- "v1"
 
 ################################################################################
 # PATHS BUILDER
