@@ -19,7 +19,7 @@ setwd("/users/rperilhou/extra_years")
 
 library(tidyverse)
 library(readxl)
-VERSION <- "v2"
+VERSION <- "v1"
 
 ################################################################################
 # PATHS BUILDER
