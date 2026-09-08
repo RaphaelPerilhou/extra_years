@@ -14,7 +14,7 @@ rm(list = ls())
 setwd("/users/rperilhou/extra_years")
 library(tidyverse)
 library(DescTools)
-VERSION <- "v2"
+VERSION <- "v1"
 
 ################################################################################
 # PATHS BUILDER
