@@ -6,13 +6,22 @@
 # Unlike 02_TM_disag.R, these rasters are already in aggregated category
 # space {0,1,2,3,99} -- no disagg->collapse step needed.
 #
-# useNA = TRUE is used so that pixels which are NA in one year but not
-# the other (e.g. left unfilled by MMU's hole-filling) are still counted,
-# as a transition to/from a "NoData" category, rather than silently
-# dropped by crosstab(). This keeps transition totals consistent across
-# every year-pair for a given county.
+# Both years are masked to the county's UNION MASK before crosstab (the
+# union mask is identical for every year of a given county, since
+# 01_mask_disag.R builds it once across all study years). Off-mask
+# pixels are dropped entirely before tabulation -- never counted at all,
+# not even as a "NoData" category. This means any NA remaining after
+# masking can ONLY be genuine model-induced data loss (MMU's incomplete
+# hole-filling after max_fill_iter iterations; Baseline and CSB never
+# introduce new in-mask NA), never off-mask background. Without this
+# masking step, off-mask pixels would flood every county's "NoData"
+# category and swamp any genuine model-induced signal, since off-mask
+# area is typically much larger than the agricultural mask itself.
 #
 # Inputs:  outputs/<VERSION>/final_corrected/<statefp>/Final_<year>_<geoid>.tif
+#          outputs/<VERSION>/classified/<statefp>/Classified_<year>_<geoid>.tif
+#          (used only as the union-mask reference; any one year works
+#          since the mask is identical across years for a given county)
 #
 # Outputs: outputs/<VERSION>/transition_final/<statefp>/TM_<year_from><year_to>_<geoid>.csv
 ################################################################################
@@ -34,6 +43,11 @@ FINAL_PATH <- function(year, geoid, statefp) {
   file.path(FINAL_DIR, statefp, paste0("Final_", year, "_", geoid, ".tif"))
 }
 
+CLASSIFIED_DIR <- file.path("outputs", VERSION, "classified")
+CLASSIFIED_PATH <- function(year, geoid, statefp) {
+  file.path(CLASSIFIED_DIR, statefp, paste0("Classified_", year, "_", geoid, ".tif"))
+}
+
 TRANSITION_FINAL_DIR <- file.path("outputs", VERSION, "transition_final")
 TRANSITION_FINAL_PATH <- function(year_from, year_to, geoid, statefp) {
   file.path(TRANSITION_FINAL_DIR, statefp,
@@ -47,7 +61,8 @@ category_labels <- c("0"  = "NonCrop",
                      "99" = "Unclassified")
 
 # Helper: map raw dimnames (character codes, or NA/"NA" for no-data) to
-# readable labels, without dropping the NA category.
+# readable labels. After masking to the union mask, "NoData" can only
+# mean genuine model-induced NA (never off-mask background).
 relabel_dimnames <- function(x) {
   ifelse(
     is.na(x) | x == "NA",
@@ -76,7 +91,8 @@ for (statefp in unique(tasks$STATEFP)) {
 }
 
 ################################################################################
-# TRANSITION FUNCTION: compute 5x5(+NoData) category TM for one year pair
+# TRANSITION FUNCTION: compute 5x5(+NoData) category TM for one year pair,
+# restricted to the county's union mask extent
 ################################################################################
 
 compute_transition_final <- function(year_from, year_to, geoid, statefp, force = FALSE) {
@@ -100,8 +116,17 @@ compute_transition_final <- function(year_from, year_to, geoid, statefp, force =
     return(NULL)
   }
   
-  r_from <- rast(path_from)
-  r_to   <- rast(path_to)
+  # Union mask reference: identical every year for this county, so any
+  # single year's Classified raster carries the correct extent.
+  ref_path <- CLASSIFIED_PATH(year_from, geoid, statefp)
+  if (!file.exists(ref_path)) {
+    cat("  Missing classified reference raster, skipping:", ref_path, "\n")
+    return(NULL)
+  }
+  union_mask_ref <- rast(ref_path)
+  
+  r_from <- mask(rast(path_from), union_mask_ref)
+  r_to   <- mask(rast(path_to),   union_mask_ref)
   
   if (!compareGeom(r_from, r_to, stopOnError = FALSE)) {
     cat("  Rasters not aligned for GEOID", geoid, "years", year_from, "-", year_to, "\n")
@@ -112,7 +137,8 @@ compute_transition_final <- function(year_from, year_to, geoid, statefp, force =
   tm      <- crosstab(stacked, useNA = TRUE)
   
   # Relabel raw category codes (0,1,2,3,99) AND the NA/"NA" no-data
-  # category to readable labels -- nothing gets dropped.
+  # category to readable labels -- nothing gets dropped. NoData here is
+  # guaranteed genuine (MMU fill-failure), never off-mask background.
   rownames(tm) <- relabel_dimnames(rownames(tm))
   colnames(tm) <- relabel_dimnames(colnames(tm))
   
@@ -131,8 +157,8 @@ source("/softs/R/createCluster.R")
 cl <- createCluster()
 
 clusterExport(cl, c("tasks", "TARGET_YEARS", "compute_transition_final",
-                    "FINAL_PATH", "TRANSITION_FINAL_PATH", "category_labels",
-                    "relabel_dimnames"))
+                    "FINAL_PATH", "CLASSIFIED_PATH", "TRANSITION_FINAL_PATH",
+                    "category_labels", "relabel_dimnames"))
 
 parLapplyLB(cl, seq_len(nrow(tasks)), function(i) {
   library(terra)
